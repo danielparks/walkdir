@@ -818,19 +818,14 @@ impl IntoIter {
         &mut self,
         mut dent: DirEntry,
     ) -> Option<Result<DirEntry>> {
-        if self.opts.follow_links && dent.file_type().is_symlink() {
+        let should_descend = if !dent.file_type().is_symlink() {
+            dent.is_dir()
+        } else if self.opts.follow_links {
             dent = itry!(self.follow(dent));
-        }
-        let is_normal_dir = !dent.file_type().is_symlink() && dent.is_dir();
-        if is_normal_dir {
-            if self.opts.same_file_system && dent.depth() > 0 {
-                if itry!(self.is_same_file_system(&dent)) {
-                    itry!(self.push(&dent));
-                }
-            } else {
-                itry!(self.push(&dent));
-            }
-        } else if dent.depth() == 0 && dent.file_type().is_symlink() {
+            // FIXME need !dent.file_type().is_symlink()? Seems like follow()
+            // should prevent this from being both a symlink and a dir.
+            !dent.file_type().is_symlink() && dent.is_dir()
+        } else if dent.depth() == 0 {
             // As a special case, if we are processing a root entry, then we
             // always follow it even if it's a symlink and follow_links is
             // false. We are careful to not let this change the semantics of
@@ -841,11 +836,20 @@ impl IntoIter {
             let md = itry!(fs::metadata(dent.path()).map_err(|err| {
                 Error::from_path(dent.depth(), dent.path().to_path_buf(), err)
             }));
-            if md.file_type().is_dir() {
+            md.file_type().is_dir()
+        } else {
+            false
+        };
+        if should_descend {
+            if self.opts.same_file_system && dent.depth() > 0 {
+                if itry!(self.is_same_file_system(&dent)) {
+                    itry!(self.push(&dent));
+                }
+            } else {
                 itry!(self.push(&dent));
             }
         }
-        if is_normal_dir && self.opts.contents_first {
+        if should_descend && self.opts.contents_first {
             self.deferred_dirs.push(dent);
             None
         } else if self.skippable() {
