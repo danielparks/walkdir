@@ -8,3 +8,5 @@ Cargo.lock
 scratch*
 bench_large/huge
 tmp
+# FIXME remove before submitting PR
+/.vagrant/
