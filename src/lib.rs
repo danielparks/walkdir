@@ -818,14 +818,12 @@ impl IntoIter {
         &mut self,
         mut dent: DirEntry,
     ) -> Option<Result<DirEntry>> {
+        if self.opts.follow_links && dent.file_type().is_symlink() {
+            dent = itry!(self.follow(dent));
+        }
         let should_descend = if !dent.file_type().is_symlink() {
             dent.is_dir()
-        } else if self.opts.follow_links {
-            dent = itry!(self.follow(dent));
-            // FIXME need !dent.file_type().is_symlink()? Seems like follow()
-            // should prevent this from being both a symlink and a dir.
-            !dent.file_type().is_symlink() && dent.is_dir()
-        } else if dent.depth() == 0 {
+        } else if dent.depth() == 0 && !self.opts.follow_links {
             // As a special case, if we are processing a root entry, then we
             // always follow it even if it's a symlink and follow_links is
             // false. We are careful to not let this change the semantics of
