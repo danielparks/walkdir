@@ -822,7 +822,18 @@ impl IntoIter {
             dent = itry!(self.follow(dent));
         }
         let should_descend = if !dent.file_type().is_symlink() {
-            dent.is_dir()
+            if dent.is_dir() {
+                if self.opts.same_file_system && dent.depth() > 0 {
+                    // Only descend into directories on the same filesystem as
+                    // the root directory.
+                    itry!(self.is_same_file_system(&dent))
+                } else {
+                    // Don't check the filesystem; descend all directories.
+                    true
+                }
+            } else {
+                false
+            }
         } else if dent.depth() == 0 {
             // As a special case, if we are processing a root entry, then we
             // always follow it even if it's a symlink and follow_links is
@@ -839,13 +850,7 @@ impl IntoIter {
             false
         };
         if should_descend {
-            if self.opts.same_file_system && dent.depth() > 0 {
-                if itry!(self.is_same_file_system(&dent)) {
-                    itry!(self.push(&dent));
-                }
-            } else {
-                itry!(self.push(&dent));
-            }
+            itry!(self.push(&dent));
         }
         if should_descend && self.opts.contents_first {
             self.deferred_dirs.push(dent);
