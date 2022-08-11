@@ -823,7 +823,7 @@ impl IntoIter {
         }
         let should_descend = if !dent.file_type().is_symlink() {
             dent.is_dir()
-        } else if dent.depth() == 0 && !self.opts.follow_links {
+        } else if dent.depth() == 0 {
             // As a special case, if we are processing a root entry, then we
             // always follow it even if it's a symlink and follow_links is
             // false. We are careful to not let this change the semantics of
